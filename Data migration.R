@@ -72,33 +72,39 @@ gs_edit_cells(template.info, ws = "V2", input = obj.fields.2, col_names = TRUE)
 # 2. Extract data from objects_v1 and structure as in objects_v2 --------------------
 
 # Retrieve v2 to v1 mapping table
-map.v2v1 <- data.frame(gs_read(template.info, "V2", "A1:G306"))
+map.v2v1 <- data.frame(gs_read(template.info, "V2", "A1:H306"))
 # Remove formula fields from map.v2v1
 map.v2v1 <- map.v2v1[map.v2v1$calc_v2 == FALSE, ]
 # Remove fields that won't be loaded (N/A in field_v1 column)
 map.v2v1 <- map.v2v1[map.v2v1$field_v1 != "N/A", ]
+# Remove fields that are empty in v1
+map.v2v1 <- map.v2v1[map.v2v1$empty_v1 == "no", ] 
 
 # Create list with empty data frames with objects_v2 to load (P&L and Calendar not incl.)
 obj.2 <- c("Submission__c", "fdp_farmer__c", "fdp_farmer_BL__c", "fdp_Farm__c",
            "fdp_Farm_BL__c", "fdp_plot__c", "fdp_Diagnostic_Monitoring__c", 
            "observation__c")
 data.2 <- list()
+fields.ret <- c("object_v2", "field_v2", "type_v2", "object_v1", "field_v1")
 
 # Retrieve data and order as in objects_v2
-for(i in seq_along(obj.2)) {
-      map.temp <- map.v2v1[map.v2v1$object_v2 == obj.2[i], c(1:3, 6, 7)]
-
-      # Change variable names from v1 to v2 and value NA if field is reference
-      for(j in seq_along(data.2[[i]])) {
-            # Retrieve data from v1
-            query.temp <- paste("SELECT", map.temp$field_v1[j], "FROM", fdp.objects.1[i],
-                                "LIMIT 100", sep = " ")
-            data.temp <- rforcecom.query(session.1, query.temp)
-            data.temp <- select(data.temp, map.temp$field_v1[j])
+for(i in 1:length(obj.2)) {
+      map.temp <- map.v2v1[map.v2v1$object_v2 == obj.2[i], fields.ret]
+      # Create empty column for reference fields
+      empty.temp <- rep(NA, nrow(rforcecom.retrieve(session.1, fdp.objects.1[i],
+                                                    "Id")))
+      # For each field_v2 assign data from corresponding field_v1
+      for(j in 1:nrow(map.temp)) {
+            if(map.temp$type_v2[j] != "reference") {
+                  query.temp <- paste("SELECT", map.temp$field_v1[j], "FROM",
+                                      fdp.objects.1[i], sep = " ")
+                  data.temp <- rforcecom.query(session.1, query.temp)
+                  if(length(data.temp) > 1) {data.temp <- select(data.temp,
+                                                                 map.temp$field_v1[j])}
+            } else {
+                  data.temp <- data.frame(empty.temp)
+            }
             names(data.temp)[1] <- map.temp$field_v2[j]
-            # reference fields value == NA
-            if(map.temp$type_v2[j] == "reference") {data.temp <- NA}
-            # add field to i-th object_v2
             if(j == 1) {
                   data.2[[i]] <- data.temp
             } else {
@@ -107,37 +113,6 @@ for(i in seq_along(obj.2)) {
       }
       names(data.2)[i] <- obj.2[i]
 }
-
-
-for(i in seq_along(obj.2)) {
-      # Retrieve data from i-th object_v1
-      map.temp <- map.v2v1[map.v2v1$object_v2 == obj.2[i], c(1:3, 6, 7)]
-      
-      for(j in 1:nrow(map.temp)) {
-            data.temp <- rforcecom.retrieve(session.1, fdp.objects.1[i], 
-                                            map.temp$field_v1[j], limit = 100)
-            
-            if(map.temp[j, 3] == "reference") {data.temp <- NA}
-            ifelse(j == i, data[[i]] <- data.temp, data[[i]] <- data.frame(data[[i]],
-                                                                           data.temp))
-            names(data.2[[i]])[j] <- map.temp[j, 2]
-      }
-      names(data.2)[i] <- obj.2[i]
-      
-      
-      data.2[[i]] <- rforcecom.retrieve(session.1, fdp.objects.1[i], map.temp$field_v1[7])
-      
-      # Name data frame as the i-th object_v2
-      
-      
-      # Change the names to v2 objects names and all values for NA if id field
-      
-}
-
-     # REMOVE THE 100 LIMIT ABOVE
-      
-      
-      
       
 
 # MAKE SURE TO NOT TRY TO FILL REFERENCES, FORMULAS OR ROLLUPS
