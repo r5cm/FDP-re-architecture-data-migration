@@ -18,7 +18,7 @@ This project will generate activity 2 of the following list.
 2. Extract data from objects_v1 and structure as in objects_v2
 3. Extract data from submission_v1 and structure as in submission_v2 (TBD)
 4. Create relationship between objects_v2 and submission_v2
-5. Clean data
+5. Clean data (leave only farmers submitted by Mars)
 6. Load submission_v2 data to Salesforce
 7. Add Salesforce relationship of objects_v2 to submissions_v2
 8. Load objects_v2 to Salesforce
