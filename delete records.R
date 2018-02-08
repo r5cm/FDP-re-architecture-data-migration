@@ -1,4 +1,4 @@
-object <- "fdp_farmer_BL__c"
+object <- "fdp_plot__c"
 delete <- rforcecom.retrieve(session.2, object, "Id")
 
 # Run delete job
