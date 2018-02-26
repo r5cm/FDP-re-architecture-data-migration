@@ -1,11 +1,11 @@
-object <- "fdp_plot__c"
+object <- "fdp_Diagnostic_Monitoring__c"
 delete <- rforcecom.retrieve(session.2, object, "Id")
 
 # Run delete job
 job_info <- rforcecom.createBulkJob(session.2, 
                                     operation='delete',
                                     object= object)
-# Insert
+# Delete
 batches_info <- rforcecom.createBulkBatch(session.2, 
                                           jobId=job_info$id, 
                                           delete,
