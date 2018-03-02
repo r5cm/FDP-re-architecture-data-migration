@@ -131,17 +131,31 @@ for(i in 1:length(obj.2)) {
 }
 
 # save data
-saveRDS(data.2, "data.2_import.RDS")
+saveRDS(data.2, "data.2_200_import.RDS")
 
 
 
 # 3. Clean data -------------------------------------------------------------------
+
+# Check that there are no repeated records (then manually delete repeated in SF)
+check.rep <- c("fpd_Submission__c", "fdp_farmer__c", "fdp_farmer_BL__c", "fdp_Farm__c",
+               "fdp_Farm_BL__c")
+for(i in seq_along(check.rep)) {
+      temp.dup <- duplicated(data.2[[i]]$farmer.code)
+      if(sum(temp.dup) > 1) {
+            print(paste("DUPLICATED records in ", check.rep[i], ":", sep = ""))
+            data.2[[i]]$farmer.code[temp.dup]
+      } else {
+            print(paste("NO DUPLICATED records in ", check.rep[i]))
+      }
+}
 
 # SELECT MARS FARMERS
 mars.farmers <- read.csv("Mars Indo farmers.csv")
 # Select farmers
 for(i in seq_along(data.2)) {
       if(obj.2[i] != "fdp_farmer__c") {
+            print(obj.2[i])
             print(nrow(data.2[[i]]))
             data.2[[i]] <- data.2[[i]][data.2[[i]]$farmer.code %in%
                                              mars.farmers$farmer.code, ]
@@ -158,15 +172,8 @@ for(i in seq_along(data.2)) {
       }
 }
 
-# REMOVE DUPLICATED FARMERS
-# Get duplicated farmers
-dup.ind <- duplicated(data.2$fdp_farmer__c$farmerCode__c)
-farmer <- data.2$fdp_farmer__c
-dup.farmer <- farmer[duplicated(farmer$farmerCode__c), ]
-# Define which duplicated farmers to keep (has_fdp, agreed)
-
 # Save data to be retrieved in next section
-saveRDS(data.2, "data_2.RDS")
+saveRDS(data.2, "data_2_200.RDS")
 
 # 4. Transform and load -----------------------------------------------------------
 
@@ -178,21 +185,45 @@ data.2 <- readRDS("data_2.RDS")
 
 # Spouse
 # Create family members data frame for all spouses
-family.members <- select(data.2$fdp_farmer__c, Id_v1__c, spouseName__c, spouseBirthday__c,
-                 spouseEducationalLevel__c, Spouse_income__c, have_spouse_indic,
-                 FDP_submission_v1__c)
+family.members <- select(data.2$fdp_farmer__c, Id_v1__c, spouseName__c, gender__c,
+                         spouseBirthday__c, spouseEducationalLevel__c, Spouse_income__c,
+                         have_spouse_indic, FDP_submission_v1__c)
 family.members <- family.members[family.members$have_spouse_indic != "0.0", ]
 family.members <- select(family.members, -have_spouse_indic)
 # Add missing variables that will be loaded
 num.fm <- rep(NA, nrow(family.members))
 relationship.fm <- rep("Husband/wife", nrow(family.members))
 family.members <- data.frame(family.members, num.fm, num.fm, relationship.fm)
-names(family.members) <- c("Id_farmer_v1__c", "Name__c", "Year_of_birth__c", 
+names(family.members) <- c("Id_farmer_v1__c", "Name__c", "Gender__c", "Year_of_birth__c", 
                            "Education_level__c", "Income_contribute__c",
                            "FDP_submission_v1__c", "Work_on_farm_without_compensation__c",
                            "Depend_on_income__c", "Relationship_with_head_of_household__c")
 
+# Check that all values in gender are either Pria, Wanita or null
+table(data.2$fdp_farmer__c$gender__c, useNA = 'always')
+data.2$fdp_farmer__c$gender__c <- as.character(data.2$fdp_farmer__c$gender__c)
+data.2$fdp_farmer__c$gender__c[data.2$fdp_farmer__c$gender__c == "N/A"] <- NA
+# Gender of spouse is opposite of farmer (most likely!)
+family.members$Gender__c <- with(family.members, 
+                                 ifelse(Gender__c == "Pria", "Wanita",
+                                        ifelse(Gender__c == "Wanita", "Pria", NA)))
+
 # Generic member to family members data frame
+# Check that all spouse indicators are not empty
+table(data.2$fdp_farmer__c$have_spouse_indic, useNA = 'always')
+# Check that all family members are not empty
+table(data.2$fdp_farmer__c$Family_members__c, useNA = 'always')
+data.2$fdp_farmer__c$farmerCode__c[is.na(data.2$fdp_farmer__c$Family_members__c)]
+# Check that all with spouse should have at least two family members
+test.fm <- with(data.2$fdp_farmer__c,
+                have_spouse_indic == "1.0" & as.numeric(as.character(Family_members__c)) < 2)
+sum(test.fm)
+data.2$fdp_farmer__c$Family_members__c <- as.character(data.2$fdp_farmer__c$Family_members__c)
+data.2$fdp_farmer__c$Family_members__c[test.fm] <- "2"
+# Replace all 0 family members with 1 (the farmer)
+fm.0 <- data.2$fdp_farmer__c$Family_members__c == "0.0"
+data.2$fdp_farmer__c$Family_members__c[fm.0] <- "1.0"
+data.2$fdp_farmer__c$Family_members__c <- as.factor(data.2$fdp_farmer__c$Family_members__c)
 # For each record in farmer,
 fm.name <- "Generic member FDP V1"
 for(i in 1:nrow(data.2$fdp_farmer__c)) {
@@ -227,7 +258,8 @@ for(i in 1:nrow(data.2$fdp_farmer__c)) {
             # Create observation with depend_inc, wout_compens, farmer_id and
             # income_contribute, add observation to fm data frame
             temp.record <- data.frame(Id_farmer_v1__c = fr.farmer.id,
-                                      Name__c = fm.name, 
+                                      Name__c = fm.name,
+                                      Gender__c = NA,
                                       Year_of_birth__c = NA, 
                                       Education_level__c = NA,
                                       Income_contribute__c = as.factor(fr.income.pc),
@@ -240,10 +272,14 @@ for(i in 1:nrow(data.2$fdp_farmer__c)) {
       rm(fr.farmer.id, fr.family.members, fr.income.pc, fr.depend.hh, fr.no.compens,
          fm.depend.hh, fm.no.compens, temp.record)
 }
+# Validation: FMs created = sum of farmers' FMs (must return TRUE)
+sum(as.numeric(as.character(data.2$fdp_farmer__c$Family_members__c))) == nrow(family.members)
 
 # Remove family members fields from Farmer
 rm.farmer <- c("spouseBirthday__c", "spouseEducationalLevel__c", "spouseName__c",
-               "Spouse_income__c", "have_spouse_indic", "Spouse_income__c")
+               "Spouse_income__c", "have_spouse_indic", "Spouse_income__c",
+               "Depend_on_hh_income_avg__c", "Income_contribute_by_members__c",
+               "Family_members_work_on_farm_mig__c")
 data.2$fdp_farmer__c <- select(data.2$fdp_farmer__c, -one_of(rm.farmer))
 # Remove family members fields from Farmer Baseline
 rm.farmerbl <- c("dependEconomically__c", "familyMembers__c", "familyMembersPaidWork__c",
@@ -267,12 +303,15 @@ names(temp.children) <- c("farmer_v1__c", "Number_of_children__c",
 data.2$fdp_farmer__c <- left_join(data.2$fdp_farmer__c, temp.children,
                                   by = c("Id_v1__c" = "farmer_v1__c"))
 rm(temp.children)
-# Organization: all to Mars
+# Organization: all to Mars (UPDATE FOR PRODUCTION INSTANCE)
 data.2$fdp_farmer__c$organization__c <- "a1M0l0000002FbKEAU"
 
 # Village:
 id.villages.2 <- rforcecom.retrieve(session.2, "fpd_village__c", c("Id", "Name"))
 names(id.villages.2) <- c("Id.village.2", "Name")
+# Check that there are no repeated names
+if(sum(duplicated(id.villages.2$Name)) != 0) warning("There are repeated villages")
+# Add villages
 temp.villages <- left_join(data.2$fdp_farmer__c, id.villages.2, 
                            by = c("village_v1__c" = "Name"))
 data.2$fdp_farmer__c$village__c <- temp.villages$Id.village.2
@@ -281,7 +320,7 @@ rm(temp.villages)
 # Status
 data.2$fdp_farmer__c$status__c <- "Active"
 # User (only for test, delete for production migration, already contained in data.2)
-data.2$fdp_farmer__c$OwnerId <- "0050K000007ts87QAA"
+data.2$fdp_farmer__c$OwnerId <- "00528000003lvpw"
 
 # Run insert job
 job_info <- rforcecom.createBulkJob(session.2, 
@@ -310,9 +349,11 @@ batches_detail <- lapply(batches_info,
 # Close job
 close_job_info <- rforcecom.closeBulkJob(session.2, jobId=job_info$id)
 
+
 # SUBMISSION
 
-# Status - CONFIRM WITH AAN
+# Status
+data.2$fpd_Submission__c$Status__c <- "Agreed"
 # farmer
 id.farmer.2 <- rforcecom.retrieve(session.2, "fdp_farmer__c", c("Id", "Id_v1__c"))
 names(id.farmer.2) <- c("Id.farmer.2", "Id.farmer.1")
@@ -359,10 +400,10 @@ close_job_info <- rforcecom.closeBulkJob(session.2, jobId=job_info$id)
 id.subm.2 <- rforcecom.retrieve(session.2, "fpd_Submission__c", 
                                 c("Id", "Id_v1__c", "Respondent__c"))
 names(id.subm.2) <- c("Id.subm.2", "Id.subm.1", "Respondent__c")
-temp.farmersub <- left_join(data.2$fdp_farmer__c, 
-                            id.subm.2, by = c("FDP_submission_v1__c" = "Id.subm.1"))
-data.2$fdp_farmer__c$FDP_submission__c <- temp.farmersub$Id.subm.2
-rm(temp.farmersub)
+# temp.farmersub <- left_join(data.2$fdp_farmer__c, id.subm.2,
+#                             by = c("FDP_submission_v1__c" = "Id.subm.1"))
+# data.2$fdp_farmer__c$FDP_submission__c <- temp.farmersub$Id.subm.2
+# rm(temp.farmersub)
 
 # data to update
 farmers.update <- left_join(id.farmer.2, id.subm.2, 
@@ -527,9 +568,7 @@ temp.fblsub <- left_join(data.2$fdp_farmer_BL__c, id.subm.2,
                          by = c("FDP_submission_v1__c" = "Id.subm.1"))
 data.2$fdp_farmer_BL__c$FDP_submission__c <- temp.fblsub$Id.subm.2
 rm(temp.fblsub)
-# Delete duplicated farmer baselines
-unique.fbl <- !duplicated(data.2$fdp_farmer_BL__c$farmer_v1__c)
-data.2$fdp_farmer_BL__c <- data.2$fdp_farmer_BL__c[unique.fbl, ]
+
 # load farmer baselines
 # Run insert job
 job_info <- rforcecom.createBulkJob(session.2, 
@@ -557,6 +596,9 @@ batches_detail <- lapply(batches_info,
                          })
 # Close job
 close_job_info <- rforcecom.closeBulkJob(session.2, jobId=job_info$id)
+
+
+# FAMILY MEMBER (Farmer baseline lookup) - HOLD UNTIL REVIEW WITH JULIAN
 
 
 # FARM BASELINE
@@ -619,7 +661,7 @@ temp.plotsubm <- left_join(data.2$fdp_plot__c, id.subm.2,
                            by = c("FDP_submission_v1__c" = "Id.subm.1"))
 data.2$fdp_plot__c$FDP_submission__c <- temp.plotsubm$Id.subm.2
 rm(temp.plotsubm)
-# remove distanceBetweenCocoaTrees__c field (DEFINE WHAT TO DO LATER)
+# remove distanceBetweenCocoaTrees__c field
 data.2$fdp_plot__c <- select(data.2$fdp_plot__c, -distanceBetweenCocoaTrees__c)
 # Insert plots
 # Run insert job
@@ -685,7 +727,7 @@ names(id.reco.2) <- c("Id.reco.2", "Name", "country", "Id.reco.1")
 temp.reco <- left_join(data.2$fdp_Diagnostic_Monitoring__c, id.reco.2,
                        by = c("mainRecommendation_v1__c" = "Id.reco.1"))
 data.2$fdp_Diagnostic_Monitoring__c$mainRecommendation__c <- temp.reco$Id.reco.2
-
+rm(temp.reco)
 # Insert Diagnostic/Monitorings
 # Run insert job
 job_info <- rforcecom.createBulkJob(session.2, 
