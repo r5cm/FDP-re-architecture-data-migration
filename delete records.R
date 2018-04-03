@@ -43,7 +43,7 @@ delete.object <- function(object) {
 }
 
 # Delete single object
-object.to.del <- "fpd_observation__c"
+object.to.del <- "fdp_farmer_BL__c"
 delete.object(object.to.del)
 
 # Delete list of objects

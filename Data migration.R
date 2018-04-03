@@ -3,12 +3,12 @@
 # Login to Salesforce admin V1
 library(RForcecom)
 username.1 <- "admin@utzmars.org"
-password.1 <- "gfutzmars2018n0ljYwQQqYVWfu9RIfPqWIn8"
+password.1 <- "gfutzmars2018*hn5OC4tzSecOhgHKnUtZL05C"
 session.1 <- rforcecom.login(username.1, password.1)
 
 # Login to Salesforce admin V2
 username.2 <- "admin@utzmars.org.fdpv2"
-password.2 <- "gfutzmars2018Sssksxym22rKU4SlDQcM2vWMV"
+password.2 <- "gfutzmars2018**pwUFl8FEl9ojmpSGjqeMy62K"
 apiversion.2 <- "41.0"
 url.2 <- "https://taroworks-1410--fdpv2.cs58.cloudforce.com/"
 session.2 <- rforcecom.login(username.2, password.2, url.2)
@@ -29,7 +29,7 @@ rm(username.1, password.1, username.2, password.2, apiversion.2, url.2)
 # List of objects_V1 to migrate
 fdp.objects.1 <- c("FDP_submission__c", "farmer__c", "farmer_BL__c", "Farm__c", 
                    "Farm_BL__c", "plot__c", "AODiagnostic__c", "Adoption_observations__c",
-                   "PL_FDP__c", "FDP_calendar__c")
+                   "User_performance__c", "Performance_detail__c")
 # Retrieve objects_V1 meta-data
 metadata.1 <- list()
 for(i in seq_along(fdp.objects.1)) {
@@ -52,7 +52,8 @@ for(i in seq_along(metadata.1)) {
 fdp.objects.2 <- c("fdp_Submission__c", "Answer__c", "fdp_farmer__c", "fdp_farmer_BL__c",
                    "fdp_Farm__c", "fdp_Farm_BL__c", "fdp_plot__c",
                    "fdp_Diagnostic_Monitoring__c", "fdp_PL__c", "fdp_Calendar__c",
-                   "fpd_observation__c")
+                   "fpd_observation__c", "fpd_User_performance__c",
+                   "fdp_Performance_detail__c")
 # Retrieve objects_V2 meta-data
 metadata.2 <- list()
 for(i in seq_along(fdp.objects.2)) {
@@ -83,7 +84,7 @@ gs_edit_cells(template.info, ws = "V2", input = obj.fields.2, col_names = TRUE)
 
 
 # Retrieve v2 to v1 mapping table
-map.v2v1 <- data.frame(gs_read(template.info, "V2", "A1:I344"))
+map.v2v1 <- data.frame(gs_read(template.info, "V2", "A1:I364"))
 # Remove formula fields from map.v2v1
 map.v2v1 <- map.v2v1[map.v2v1$calc_v2 == FALSE, ]
 # Remove fields that won't be loaded (N/A in field_v1 column)
@@ -94,7 +95,7 @@ map.v2v1 <- map.v2v1[map.v2v1$empty_v1 == "no", ]
 # Vector with objects to load
 obj.2 <- c("fpd_Submission__c", "fdp_farmer__c", "fdp_farmer_BL__c", "fdp_Farm__c",
            "fdp_Farm_BL__c", "fdp_plot__c", "fdp_Diagnostic_Monitoring__c", 
-           "fpd_observation__c")
+           "fpd_observation__c", "fpd_User_performance__c", "fdp_Performance_detail__c")
 data.2 <- list()
 fields.ret <- c("object_v2", "field_v2", "type_v2", "rclass_v2", "object_v1", "field_v1")
 
@@ -194,11 +195,11 @@ family.members <- select(family.members, -have_spouse_indic)
 num.fm <- rep(NA, nrow(family.members))
 relationship.fm <- rep("Husband/wife", nrow(family.members))
 family.members <- data.frame(family.members, num.fm, num.fm, relationship.fm)
-names(family.members) <- c("Id_farmer_v1__c", "Name__c", "Gender__c", "Year_of_birth__c", 
-                           "Education_level__c", "Income_contribute__c",
-                           "FDP_submission_v1__c", "Work_on_farm_without_compensation__c",
-                           "Depend_on_income__c", "Relationship_with_head_of_household__c")
-
+fm.names <- c("Id_farmer_v1__c", "Name__c", "Gender__c", "Year_of_birth__c", 
+              "Education_level__c", "Income_contribute__c",
+              "FDP_submission_v1__c", "Work_on_farm_without_compensation__c",
+              "Depend_on_income__c", "Relationship_with_head_of_household__c")
+names(family.members) <- fm.names
 # Check that all values in gender are either Pria, Wanita or null
 table(data.2$fdp_farmer__c$gender__c, useNA = 'always')
 data.2$fdp_farmer__c$gender__c <- as.character(data.2$fdp_farmer__c$gender__c)
@@ -207,6 +208,15 @@ data.2$fdp_farmer__c$gender__c[data.2$fdp_farmer__c$gender__c == "N/A"] <- NA
 family.members$Gender__c <- with(family.members, 
                                  ifelse(Gender__c == "Pria", "Wanita",
                                         ifelse(Gender__c == "Wanita", "Pria", NA)))
+
+# # Farmer as family member
+# farmers.null <- rep(NA, nrow(data.2$fdp_farmer__c))
+# farmer.fm <- with(data.2$fdp_farmer__c,
+#                   data.frame(Id_v1__c, fullName__c, gender__c, birthday__c, 
+#                              educationalLevel__c, farmers.null, FDP_submission_v1__c,
+#                              farmers.null, farmers.null, farmers.null))
+# names(farmer.fm) <- fm.names
+# family.members <- rbind(family.members, farmer.fm)
 
 # Generic member to family members data frame
 # Check that all spouse indicators are not empty
@@ -282,7 +292,7 @@ rm.farmer <- c("spouseBirthday__c", "spouseEducationalLevel__c", "spouseName__c"
                "Family_members_work_on_farm_mig__c")
 data.2$fdp_farmer__c <- select(data.2$fdp_farmer__c, -one_of(rm.farmer))
 # Remove family members fields from Farmer Baseline
-rm.farmerbl <- c("dependEconomically__c", "familyMembers__c", "familyMembersPaidWork__c",
+rm.farmerbl <- c("dependEconomically__c", "familyMembersPaidWork__c",
                  "receivesPaymentFarmLabor__c", "spouseIncome__c", "Have_spouse__c",
                  "spouseHavePaidWork__c", "familyMembersIncome__c")
 data.2$fdp_farmer_BL__c <- select(data.2$fdp_farmer_BL__c, -one_of(rm.farmerbl))
@@ -490,6 +500,11 @@ rm(temp.farmsub)
 temp.farmfarmer <- left_join(data.2$fdp_Farm__c, id.farmer.2,
                              by = c("farmer_v1__c" = "Id.farmer.1"))
 data.2$fdp_Farm__c$farmer__c <- temp.farmfarmer$Id.farmer.2
+# Village (NUEVO: ESTO NO SE HA PROBADO)
+temp.villages <- left_join(data.2$fdp_Farm__c, id.villages.2, 
+                           by = c("village_v1__c" = "Name"))
+data.2$fdp_Farm__c$village__c <- temp.villages$Id.village.2
+rm(temp.villages)
 # Load farms
 # Run insert job
 job_info <- rforcecom.createBulkJob(session.2, 
@@ -810,3 +825,113 @@ batches_detail <- lapply(batches_info,
                          })
 # Close job
 close_job_info <- rforcecom.closeBulkJob(session.2, jobId=job_info$id)
+
+
+
+# USER PERFORMANCE
+
+# ONLY FOR TESTING!!!!!!!!!!1
+data.2$fpd_User_performance__c$Assigned_to__c <- "00528000003lvpw"
+
+# Run insert job
+job_info <- rforcecom.createBulkJob(session.2, 
+                                    operation='insert',
+                                    object='fpd_User_performance__c')
+# Insert
+batches_info <- rforcecom.createBulkBatch(session.2, 
+                                          jobId=job_info$id, 
+                                          data.2$fpd_User_performance__c,
+                                          multiBatch = TRUE,
+                                          batchSize=500)
+# check on status of each batch
+batches_status <- lapply(batches_info, 
+                         FUN=function(x){
+                               rforcecom.checkBatchStatus(session.2, 
+                                                          jobId=x$jobId, 
+                                                          batchId=x$id)
+                         })
+# get details on each batch
+batches_detail <- lapply(batches_info, 
+                         FUN=function(x){
+                               rforcecom.getBatchDetails(session.2, 
+                                                         jobId=x$jobId, 
+                                                         batchId=x$id)
+                         })
+# Close job
+close_job_info <- rforcecom.closeBulkJob(session.2, jobId=job_info$id)
+
+
+# PERFORMANCE DETAILS
+
+# Filter performance details
+# Login salesforce
+password <- "lestari45PtkwZcuVt5G3DtiK39kq30MnI"
+session.rep <- rforcecom.login("reports@utzmars.org", password)
+# Retrieve performance details
+fields <- c("Id", "Agree__c", "FDP_Submission__c", "createdDate", "Farmer_name__c",
+            "Farmer_code__c", "User_performance__c", "User_performance__r.Activity__c",
+            "User_performance__r.Performance__c", "User_performance__r.Mars_profile__c",
+            "User_performance__r.Assigned_to_Name__c")
+perf.det <- rforcecom.retrieve(session.rep, "Performance_detail__c", fields)
+perf.det <- select(perf.det,
+                   c("Id", "Agree__c", "FDP_submission__c", "CreatedDate", "Farmer_name__c",
+                     "Farmer_code__c", "User_performance__c", "User_performance__c.Activity__c",
+                     "User_performance__c.Performance__c", "User_performance__c.Mars_profile__c",
+                     "User_performance__c.Assigned_to_Name__c"))
+names(perf.det) <- c("Id", "agree", "submission", "createdDate", "farmerName", 
+                     "farmerCode", "user.performance", "up.activity", "up.performance",
+                     "up.profile", "user")
+# Exclude monitoring activities AND performance==NA AND profile contains FC
+perf.det <- perf.det[perf.det$up.activity == "FDP diagnostic" & 
+                           !is.na(perf.det$up.performance) &
+                           grepl("Field Coordinator", perf.det$up.profile), ]
+# Filter performance details
+data.2$fdp_Performance_detail__c <- 
+      data.2$fdp_Performance_detail__c[data.2$fdp_Performance_detail__c$Id_v1__c
+                                       %in% perf.det$Id, ]
+
+# Submission (REVISAR POR QUÉ HAY SUBMISSIONS DUPLICADOS)
+id.subm.2 <- id.subm.2[!duplicated(id.subm.2$Id.subm.1), ]
+temp.pdSub <- left_join(data.2$fdp_Performance_detail__c, id.subm.2,
+                        by = c("Submission_v1__c" = "Id.subm.1"))
+data.2$fdp_Performance_detail__c$Submission__c <- temp.pdSub$Id.subm.2
+
+# Performance details
+id.up <- rforcecom.retrieve(session.2, "fpd_User_performance__c", c("Id", "Id_v1__c"))
+names(id.up) <- c("Id.up.2", "Id.up.1")
+temp.upSub <- left_join(data.2$fdp_Performance_detail__c, id.up,
+                        by = c("User_performance_v1__c" = "Id.up.1"))
+data.2$fdp_Performance_detail__c$User_performance__c <- temp.upSub$Id.up.2
+
+# Load performance details
+# Run insert job
+job_info <- rforcecom.createBulkJob(session.2, 
+                                    operation='insert',
+                                    object='fdp_Performance_detail__c')
+# Insert
+batches_info <- rforcecom.createBulkBatch(session.2, 
+                                          jobId=job_info$id, 
+                                          select(data.2$fdp_Performance_detail__c,
+                                                 -one_of(c("Id_v1__c",
+                                                           "Submission_v1__c",
+                                                           "User_performance_v1__c"))),
+                                          multiBatch = TRUE,
+                                          batchSize=500)
+# check on status of each batch
+batches_status <- lapply(batches_info, 
+                         FUN=function(x){
+                               rforcecom.checkBatchStatus(session.2, 
+                                                          jobId=x$jobId, 
+                                                          batchId=x$id)
+                         })
+# get details on each batch
+batches_detail <- lapply(batches_info, 
+                         FUN=function(x){
+                               rforcecom.getBatchDetails(session.2, 
+                                                         jobId=x$jobId, 
+                                                         batchId=x$id)
+                         })
+# Close job
+close_job_info <- rforcecom.closeBulkJob(session.2, jobId=job_info$id)
+
+
