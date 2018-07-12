@@ -1,11 +1,14 @@
 # Login to Salesforce admin V2
 library(RForcecom)
-username.2 <- "admin@utzmars.org.fdpv2"
-password.2 <- "gfutzmars2018Sssksxym22rKU4SlDQcM2vWMV"
-apiversion.2 <- "41.0"
-url.2 <- "https://taroworks-1410--fdpv2.cs58.cloudforce.com/"
-session.2 <- rforcecom.login(username.2, password.2, url.2)
+# username.2 <- "admin@utzmars.org.fdpv2"
+# password.2 <- "gfutzmars2018Sssksxym22rKU4SlDQcM2vWMV"
+# apiversion.2 <- "41.0"
+# url.2 <- "https://taroworks-1410--fdpv2.cs58.cloudforce.com/"
+# session.2 <- rforcecom.login(username.2, password.2, url.2)
 
+username.2 <- "admin@utzmars.org"
+password.2 <- "gfutzmars2018*hn5OC4tzSecOhgHKnUtZL05C"
+session.2 <- rforcecom.login(username.1, password.1)
 
 # Function to delete object
 delete.object <- function(object) {
@@ -43,7 +46,7 @@ delete.object <- function(object) {
 }
 
 # Delete single object
-object.to.del <- "fdp_farmer_BL__c"
+object.to.del <- "fpd_observation__c"
 delete.object(object.to.del)
 
 # Delete list of objects
