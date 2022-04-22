@@ -3,13 +3,13 @@
 
 # Login to Salesforce admin V1
 library(RForcecom)
-username.1 <- "admin@utzmars.org"
-password.1 <- "gfutzmars2018**rVT2RIYCePpAUf6zhiMIejCH"
+username.1 <- readline(prompt = "Enter username 1: ")
+password.1 <- readline(prompt = "Enter password 1: ")
 session.1 <- rforcecom.login(username.1, password.1)
 
 # Login to Salesforce admin V2
-username.2 <- "admin@utzmars.org.fdpv2"
-password.2 <- "gfutzmars2018***H8x9WCM8vPXaZDqOVJSY2gpO"
+username.2 <- readline(prompt = "Enter username 2: ")
+password.2 <- readline(prompt = "Enter password 2: ")
 apiversion.2 <- "41.0"
 url.2 <- "https://taroworks-1410--fdpv2.cs58.cloudforce.com/"
 session.2 <- rforcecom.login(username.2, password.2, url.2)
@@ -1988,7 +1988,7 @@ data.2$fdp_Performance_detail__c <-
       data.2$fdp_Performance_detail__c[data.2$fdp_Performance_detail__c$Id_v1__c
                                        %in% perf.det$Id, ]
 
-# Submission (REVISAR POR QUÉ HAY SUBMISSIONS DUPLICADOS)
+# Submission (REVISAR POR QUÃ‰ HAY SUBMISSIONS DUPLICADOS)
 id.subm.2 <- id.subm.2[!duplicated(id.subm.2$Id.subm.1), ]
 temp.pdSub <- left_join(data.2$fdp_Performance_detail__c, id.subm.2,
                         by = c("Submission_v1__c" = "Id.subm.1"))
