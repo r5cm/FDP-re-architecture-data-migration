@@ -1,13 +1,11 @@
 # Login to Salesforce admin V2
 library(RForcecom)
-# username.2 <- "admin@utzmars.org.fdpv2"
-# password.2 <- "gfutzmars2018Sssksxym22rKU4SlDQcM2vWMV"
 # apiversion.2 <- "41.0"
 # url.2 <- "https://taroworks-1410--fdpv2.cs58.cloudforce.com/"
 # session.2 <- rforcecom.login(username.2, password.2, url.2)
 
-username.2 <- "admin@utzmars.org"
-password.2 <- "gfutzmars2018*hn5OC4tzSecOhgHKnUtZL05C"
+username.2 <- readline(prompt = "Enter username: ")
+password.2 <- readline(prompt = "Enter password: ")
 session.2 <- rforcecom.login(username.1, password.1)
 
 # Function to delete object
